@@ -1,5 +1,12 @@
-SqlForensics
-============
+#SqlForensics
+
+##Installing
+Open the InstallSqlForensics.sql file, review it and run it.
+What the install does:
+ * Creates a database called [SqlForensics].
+ * Creates several tables in that database to track what happens when.
+ * Creates several stored procedures to track different items.
+
 
 SQL Server logging system to help with forensics.
 
