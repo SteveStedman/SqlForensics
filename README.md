@@ -46,4 +46,6 @@ that no modifications were made to your SQL Server during that hacking event.
  
 
 ##Want to contribute
-Contact Steve Stedman for more info
+Contact Steve Stedman for more info.
+Basically here is how it works...
+For this Repository, add a feature, test it make sure it is solid.  Submit a pull request to have the feature merged back into the main repo.  Note, not all changes will be accepted. 
