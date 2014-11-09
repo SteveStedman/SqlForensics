@@ -77,30 +77,27 @@ BEGIN
 	EXECUTE @logTypeId = [ForensicLogging].[getLogTypeId] @type;
 	IF(@logTypeId is not NULL)
 	BEGIN
-
 		MERGE [ForensicLogging].[LogItems]  AS target       
 		USING (SELECT configuration_id, name  FROM sys.configurations as c) AS source (theItemsId, name)       
-		ON (target.theItemsId = source.theItemsId and target.name = source.name)   
-		WHEN NOT MATCHED THEN                                 
-		INSERT (theItemsId, name)                                 
-		VALUES (source.theItemsId, source.name);  
+		   ON (target.theItemsId = source.theItemsId and target.name = source.name)   
+		 WHEN NOT MATCHED THEN                                 
+	   INSERT (theItemsId, name)                                 
+	   VALUES (source.theItemsId, source.name);  
 
-
-		;WITH wrapperCte 
-		AS( 
+		;WITH wrapperCTE AS
+		( 
 			SELECT [itemId], [value], 
 				   ROW_NUMBER() OVER (PARTITION BY [typeId], [itemId] ORDER BY ID DESC) as sorter
 			  FROM [ForensicLogging].[Log]
 			 WHERE [typeId] = @logTypeId
 		),
-		existingCte 
-		AS(
+		existingCTE AS
+		(
 			SELECT * 
-			  FROM wrapperCte
+			  FROM wrapperCTE
 			 WHERE sorter = 1
 		)
-		,currentCTE
-		AS
+		,currentCTE	AS
 		(
 			SELECT l.id as itemId, cast(c.VALUE AS VARCHAR(100)) + '/' + cast(c.VALUE_IN_USE as VARCHAR(100)) as VALUE 
 			  FROM sys.configurations as c
@@ -109,8 +106,8 @@ BEGIN
 		INSERT INTO [ForensicLogging].[Log] ([typeId], [itemId], [value]) 
 		SELECT @logTypeId, c.*
 		  FROM currentCTE as c
-		  LEFT JOIN existingCTE as e ON e.itemId = c.itemId AND c.value = e.value
-		WHERE e.value is NULL;
+		  LEFT JOIN existingCTE as e ON e.[itemId] = c.[itemId] AND c.[value] = e.[value]
+		 WHERE e.[value] is NULL;
 	END
 END
 GO
@@ -137,7 +134,7 @@ EXECUTE [ForensicLogging].[runFullMonitoringPass] ;
 
 
 
-SELECT li.[name], l.[whenRecorded], l.[value]
+SELECT li.[name], cast(l.[whenRecorded] as datetime), l.[value]
   FROM [ForensicLogging].[Log] l
   INNER JOIN [ForensicLogging].[LogItems]  li on li.[id] = l.[itemId]
   ORDER BY [whenRecorded] DESC;
