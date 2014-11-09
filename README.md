@@ -7,7 +7,7 @@ What the install does:
  * Creates several tables in that database to track what happens when.
  * Creates several stored procedures to track different items.
 
-
+##What is it?
 SQL Server logging system to help with forensics.
 
 Why do you need this? Do you have databases that fall into any of the following categories:
@@ -23,7 +23,8 @@ database, and to keep that information around for an extended period. Imagine fi
 had been hacked 7 months ago and people had stolen credit cards. Is there a way that you can know for sure
 that no modifications were made to your SQL Server during that hacking event.
 
-To Do:
+
+##To Do
 + Tracking of who changed what and when
  + Stored Procedures
  + Functions
@@ -35,8 +36,14 @@ To Do:
  + Logins
  + Permissions
  + Add/Remove a Database
- + Database configurations
  + Instance / Server configurations
 + Alerting
 + Investigation Tools
 + Transaction Log Viewer
+
+##Whats Done
++ Tracking database configuration changes (ie sp_configure)
+ 
+
+##Want to contribute
+Contact Steve Stedman for more info
