@@ -6,13 +6,13 @@ SET NOCOUNT ON;
 --   need to convert varchars to nvarchars
 IF EXISTS(SELECT name FROM sys.databases WHERE name = 'SqlForensics')
 BEGIN
-	--RAISERROR ('Database SqlForensics Already Exists', 20, 1)  WITH LOG
+	RAISERROR ('Database SqlForensics Already Exists', 20, 1)  WITH LOG
 	-- comment out the RAISEERROR line above and uncomment the following three lines if you
 	--   are running the script a second time. 
 	   
-	ALTER DATABASE [SqlForensics] 
-	  SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
-	DROP DATABASE [SqlForensics];
+	--ALTER DATABASE [SqlForensics] 
+	--  SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
+	--DROP DATABASE [SqlForensics];
 END
 
 -- NOTE set to Case Sensitive for testing purpose. The COLLATE line can certainly be removed or changed.
