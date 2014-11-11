@@ -4,17 +4,18 @@ SET NOCOUNT ON;
 
 -- notes 
 --   need to convert varchars to nvarchars
-
 IF EXISTS(SELECT name FROM sys.databases WHERE name = 'SqlForensics')
 BEGIN
-	RAISERROR ('Database SqlForensics Already Exists', 20, 1)  WITH LOG
+	--RAISERROR ('Database SqlForensics Already Exists', 20, 1)  WITH LOG
 	-- comment out the RAISEERROR line above and uncomment the following three lines if you
 	--   are running the script a second time. 
 	   
-	--ALTER DATABASE [SqlForensics] 
-	--  SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
-	--DROP DATABASE [SqlForensics];
+	ALTER DATABASE [SqlForensics] 
+	  SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
+	DROP DATABASE [SqlForensics];
 END
+
+-- NOTE set to Case Sensitive for testing purpose. The COLLATE line can certainly be removed or changed.
 CREATE DATABASE [SqlForensics]
 COLLATE SQL_Latin1_General_CP1_CS_AS;
 GO
@@ -41,8 +42,6 @@ CREATE TABLE [ForensicLogging].[LogTypes](
 ) ON [PRIMARY]
 
 GO
-
-
 
 CREATE TABLE [ForensicLogging].[LogItems](
 	[id] [bigint] IDENTITY(-9223372036854775808,1) NOT NULL,
@@ -102,10 +101,8 @@ REFERENCES [ForensicLogging].[LogTypes] ([id]);
 GO
 
 ALTER TABLE [ForensicLogging].[Log] CHECK CONSTRAINT [FK_Log_LogTypes];
-
-
-
 GO
+
 CREATE PROCEDURE [ForensicLogging].[getLogTypeId]
 	@type VARCHAR (50)
 AS
@@ -261,26 +258,49 @@ BEGIN
 	END	
 END
 GO
+CREATE PROCEDURE [ForensicLogging].[getSetting]
+	@setting VARCHAR (50), 
+	@value as VARCHAR(5000) OUTPUT
+AS
+BEGIN	
+	SELECT @value = value
+	  FROM [ForensicLogging].[Configuration]
+     WHERE setting = @setting;
+	--IF(@value IS NULL)
+	--BEGIN
+	--	SET @value = '';
+	--END
+END
+GO
+
 CREATE PROCEDURE [ForensicLogging].[runFullMonitoringPass] 
 AS
 BEGIN
 	SET NOCOUNT ON;
+	DECLARE @displayChanges as VARCHAR(5000);
+	DECLARE @previousMaxId as BIGINT;
+	
+	SELECT 	@previousMaxId  = max(id)
+	  FROM [ForensicLogging].[Log];
+
+	EXECUTE [ForensicLogging].[getSetting] 'DisplayChanges', @displayChanges OUTPUT;
+		
 	EXECUTE [ForensicLogging].[monitorConfig];
 	EXECUTE [ForensicLogging].[monitorUsers];
+
+	IF(@displayChanges = 'True')
+	BEGIN
+		SELECT li.[name], cast(l.[whenRecorded] as datetime), l.[value]
+		  FROM [ForensicLogging].[Log] l
+		 INNER JOIN [ForensicLogging].[LogItems]  li on li.[id] = l.[itemId]
+		 WHERE l.id > @previousMaxId
+		 ORDER BY [whenRecorded] DESC;
+	END
 END
 GO
 
 --EXEC sp_configure 'show advanced options', '0';
 
---EXECUTE [ForensicLogging].[runFullMonitoringPass] ;
---EXEC sp_configure 'show advanced options', '1';
--- WAITFOR DELAY '00:00:02';
---EXECUTE [ForensicLogging].[runFullMonitoringPass] ;
---EXEC sp_configure 'show advanced options', '0';
--- WAITFOR DELAY '00:00:02';
---EXECUTE [ForensicLogging].[runFullMonitoringPass] ;
---EXEC sp_configure 'show advanced options', '1';
--- WAITFOR DELAY '00:00:02';
 
 
 -- To Use schedule the following line in a regular running job. Perhaps once every 5 minutes.
@@ -288,10 +308,24 @@ EXECUTE [ForensicLogging].[runFullMonitoringPass] ;
 
 
 -- To see results run this query
-SELECT li.[name], cast(l.[whenRecorded] as datetime), l.[value]
-  FROM [ForensicLogging].[Log] l
-  INNER JOIN [ForensicLogging].[LogItems]  li on li.[id] = l.[itemId]
-  ORDER BY [whenRecorded] DESC;
+--SELECT li.[name], cast(l.[whenRecorded] as datetime), l.[value]
+--  FROM [ForensicLogging].[Log] l
+--  INNER JOIN [ForensicLogging].[LogItems]  li on li.[id] = l.[itemId]
+--  ORDER BY [whenRecorded] DESC;
 
 
+
+
+
+EXEC sp_configure 'show advanced options', '1';
+ WAITFOR DELAY '00:00:02';
+EXECUTE [ForensicLogging].[runFullMonitoringPass] ;
+EXEC sp_configure 'show advanced options', '0';
+ WAITFOR DELAY '00:00:02';
+
+-- Note the 'DisplayChanges' option of 'True' (string value) means that the runFullMonitoringPass sproc will display what has changed in that specific run.
+INSERT INTO [ForensicLogging].[Configuration] ([setting], [value]) VALUES ('DisplayChanges', 'True');
+EXECUTE [ForensicLogging].[runFullMonitoringPass] ;
+--EXEC sp_configure 'show advanced options', '1';
+-- WAITFOR DELAY '00:00:02';
 
