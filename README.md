@@ -32,7 +32,6 @@ that no modifications were made to your SQL Server during that hacking event.
  + Triggers
  + Foreign Keys
  + Schemas
- + Users
  + Logins
  + Permissions
  + Add/Remove a Database
@@ -43,7 +42,8 @@ that no modifications were made to your SQL Server during that hacking event.
 
 ##Whats Done
 + Tracking database configuration changes (ie sp_configure)
- 
++ Users
+  
 
 ##Want to contribute
 Contact Steve Stedman for more info.
