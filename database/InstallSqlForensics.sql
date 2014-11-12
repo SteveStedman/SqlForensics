@@ -2,17 +2,15 @@ USE MASTER;
 GO
 SET NOCOUNT ON;
 
--- notes 
---   need to convert varchars to nvarchars
 IF EXISTS(SELECT name FROM sys.databases WHERE name = 'SqlForensics')
 BEGIN
-	RAISERROR ('Database SqlForensics Already Exists', 20, 1)  WITH LOG
+	--RAISERROR ('Database SqlForensics Already Exists', 20, 1)  WITH LOG
 	-- comment out the RAISEERROR line above and uncomment the following three lines if you
 	--   are running the script a second time. 
 	   
-	--ALTER DATABASE [SqlForensics] 
-	--  SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
-	--DROP DATABASE [SqlForensics];
+	ALTER DATABASE [SqlForensics] 
+	  SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
+	DROP DATABASE [SqlForensics];
 END
 
 -- NOTE set to Case Sensitive for testing purpose. The COLLATE line can certainly be removed or changed.
@@ -27,14 +25,14 @@ CREATE SCHEMA [ForensicLogging];
 GO
 CREATE TABLE [ForensicLogging].[Configuration] (
 	[id] INTEGER IDENTITY,  
-    [setting] VARCHAR (200),
-    [value] VARCHAR (5000)
+    [setting] NVARCHAR (200),
+    [value] NVARCHAR (4000)
 	);
 
 GO
 CREATE TABLE [ForensicLogging].[LogTypes](
-	[id] [smallint] IDENTITY(-32768,1) NOT NULL,
-	[type] [varchar](50) NULL,
+	[id] [SMALLINT] IDENTITY(-32768,1) NOT NULL,
+	[type] [NVARCHAR](50) NULL,
  CONSTRAINT [PK_LogTypes] PRIMARY KEY CLUSTERED 
 (
 	[id] ASC
@@ -45,8 +43,8 @@ GO
 
 CREATE TABLE [ForensicLogging].[LogItems](
 	[id] [bigint] IDENTITY(-9223372036854775808,1) NOT NULL,
-	[theItemsId] [int] NULL,
-	[name] [varchar](5000) NULL,
+	[theItemsId] [INTEGER] NULL,
+	[name] [NVARCHAR](4000) NULL,
  CONSTRAINT [PK_LogItems] PRIMARY KEY CLUSTERED 
 (
 	[id] ASC
@@ -56,8 +54,8 @@ GO
 
 CREATE TABLE [ForensicLogging].[databaseAndServer](
 	[id] [bigint] IDENTITY(-9223372036854775808,1) NOT NULL,
-	[databaseName] [varchar](1000) NULL,
-	[serverName] [varchar](1000) NULL,
+	[databaseName] [NVARCHAR](1000) NULL,
+	[serverName] [NVARCHAR](1000) NULL,
  CONSTRAINT [PK_databaseAndServer] PRIMARY KEY CLUSTERED 
 (
 	[id] ASC
@@ -71,7 +69,7 @@ CREATE TABLE [ForensicLogging].[Log](
 	[databaseServerId] bigint NULL, -- set to not null once working
 	[typeId] [smallint] NOT NULL,
 	[itemId] [bigint] NOT NULL,
-	[value] [varchar](max) NULL,
+	[value] [NVARCHAR](max) NULL,
  CONSTRAINT [PK_Log] PRIMARY KEY CLUSTERED 
 (
 	[id] ASC
@@ -104,7 +102,7 @@ ALTER TABLE [ForensicLogging].[Log] CHECK CONSTRAINT [FK_Log_LogTypes];
 GO
 
 CREATE PROCEDURE [ForensicLogging].[getLogTypeId]
-	@type VARCHAR (50)
+	@type NVARCHAR (50)
 AS
 BEGIN	
 	DECLARE @logType as SMALLINT;
@@ -131,7 +129,7 @@ BEGIN
 	SET NOCOUNT ON;
 	DECLARE @databaseAndServerId as BIGINT;
 	DECLARE @logTypeId as SMALLINT;
-	DECLARE @type varchar(50);
+	DECLARE @type NVARCHAR(50);
 	SET @type = 'sys_configurations';
 	SET @databaseAndServerId = NULL;
 
@@ -173,7 +171,7 @@ BEGIN
 		),currentCTE	AS
 		(
 			SELECT l.id as itemId, 
-			       cast(c.VALUE AS VARCHAR(100)) + '/' + cast(c.VALUE_IN_USE as VARCHAR(100)) as value
+			       cast(c.VALUE AS NVARCHAR(100)) + '/' + cast(c.VALUE_IN_USE as NVARCHAR(100)) as value
 			  FROM sys.configurations as c
 			 INNER JOIN [ForensicLogging].[LogItems] as l 
 			         ON l.theItemsId = c.CONFIGURATION_ID AND 
@@ -193,7 +191,7 @@ BEGIN
 	SET NOCOUNT ON;
 	DECLARE @databaseAndServerId as BIGINT;
 	DECLARE @logTypeId as SMALLINT;
-	DECLARE @type varchar(50);
+	DECLARE @type [NVARCHAR](50);
 	SET @type = 'users';
 	SET @databaseAndServerId = NULL;
 
@@ -201,10 +199,10 @@ BEGIN
 	IF(@logTypeId is not NULL)
 	BEGIN
 		CREATE TABLE #tempUsers (
-			loginName nvarchar(max),
-			dbName nvarchar(max),
-			userName nvarchar(max), 
-			aliasName nvarchar(max)
+			loginName NVARCHAR(max),
+			dbName NVARCHAR(max),
+			userName NVARCHAR(max), 
+			aliasName NVARCHAR(max)
 		);
 
 		INSERT INTO #tempUsers
@@ -258,35 +256,108 @@ BEGIN
 	END	
 END
 GO
+CREATE PROCEDURE [ForensicLogging].[monitorObjects] 
+AS
+BEGIN
+	-- improve this by breaking out the object type.
+	SET NOCOUNT ON;
+	DECLARE @databaseAndServerId as BIGINT;
+	DECLARE @logTypeId as SMALLINT;
+	DECLARE @type [NVARCHAR](50);
+	SET @type = 'objects';
+	SET @databaseAndServerId = NULL;
+	EXECUTE @logTypeId = [ForensicLogging].[getLogTypeId] @type;
+	IF(@logTypeId is not NULL)
+	BEGIN
+		CREATE TABLE #tempOutput (
+					itemName NVARCHAR(max),
+					dbName NVARCHAR(max),
+					itemId INTEGER, 
+					itemDetails NVARCHAR(max)
+				);
+
+		INSERT INTO #tempOutput
+		EXECUTE master.sys.sp_MSforeachdb '
+					SELECT  ''[?].['' + s.name + ''].['' + o.name + '']'' RoutineName,
+							''?'',
+							procs.object_id,
+							procs.[definition]
+		
+					FROM    [?].sys.sql_modules procs
+					INNER JOIN [?].sys.objects o ON procs.object_id = o.object_id
+					INNER JOIN [?].sys.schemas s ON o.schema_id = s.schema_id';
+
+		MERGE [ForensicLogging].[LogItems]  AS target       
+		USING (SELECT itemName FROM #tempOutput) AS source (name)       
+		   ON (target.name COLLATE DATABASE_DEFAULT = source.name COLLATE DATABASE_DEFAULT)   
+		 WHEN NOT MATCHED THEN                                 
+	   INSERT (name)                                 
+	   VALUES (source.name);  
+
+		MERGE [ForensicLogging].[databaseAndServer]  AS target       
+		USING (SELECT DISTINCT @@SERVERNAME, dbName FROM #tempOutput WHERE dbName IS NOT NULL) AS source (serverName, databaseName)       
+		   ON (target.databaseName COLLATE DATABASE_DEFAULT = source.databaseName COLLATE DATABASE_DEFAULT AND 
+			   target.serverName COLLATE DATABASE_DEFAULT = source.serverName COLLATE DATABASE_DEFAULT)   
+		 WHEN NOT MATCHED THEN                                 
+	   INSERT (serverName, databaseName)                                 
+	   VALUES (source.serverName, source.databaseName);  
+
+		;WITH wrapperCTE AS
+		( 
+			SELECT [itemId], [value], 
+				   ROW_NUMBER() OVER (PARTITION BY [typeId], [itemId] ORDER BY [id] DESC) as sorter
+			  FROM [ForensicLogging].[Log]
+			 WHERE [typeId] = @logTypeId
+		),existingCTE AS
+		(
+			SELECT * 
+			  FROM wrapperCTE
+			 WHERE sorter = 1
+		),currentCTE	AS
+		(
+			SELECT l.id as itemId, t.itemDetails as value, das.id as databaseServerId
+			  FROM #tempOutput as t
+			 INNER JOIN [ForensicLogging].[LogItems] as l 
+			        ON l.theItemsId IS NULL AND 
+					   l.name COLLATE DATABASE_DEFAULT = t.itemName COLLATE DATABASE_DEFAULT  
+			 INNER JOIN [ForensicLogging].[databaseAndServer]  as das
+			        ON das.databaseName COLLATE DATABASE_DEFAULT = t.dbName COLLATE DATABASE_DEFAULT 
+					AND das.serverName COLLATE DATABASE_DEFAULT = @@SERVERNAME COLLATE DATABASE_DEFAULT 
+		)
+		INSERT INTO [ForensicLogging].[Log] ([typeId], [itemId], [value], [databaseServerId]) 
+		SELECT @logTypeId, c.*
+		  FROM currentCTE as c
+		  LEFT JOIN existingCTE as e ON e.[itemId] = c.[itemId] 
+		      AND c.[value] COLLATE DATABASE_DEFAULT = e.[value] COLLATE DATABASE_DEFAULT 
+		 WHERE e.[value] is NULL;
+
+		DROP TABLE #tempOutput;
+	END	
+END
+GO
 CREATE PROCEDURE [ForensicLogging].[getSetting]
-	@setting VARCHAR (50), 
-	@value as VARCHAR(5000) OUTPUT
+	@setting NVARCHAR (50), 
+	@value as NVARCHAR(4000) OUTPUT
 AS
 BEGIN	
 	SELECT @value = value
 	  FROM [ForensicLogging].[Configuration]
      WHERE setting = @setting;
-	--IF(@value IS NULL)
-	--BEGIN
-	--	SET @value = '';
-	--END
 END
 GO
-
 CREATE PROCEDURE [ForensicLogging].[runFullMonitoringPass] 
 AS
 BEGIN
 	SET NOCOUNT ON;
-	DECLARE @displayChanges as VARCHAR(5000);
+	DECLARE @displayChanges as NVARCHAR(4000);
 	DECLARE @previousMaxId as BIGINT;
 	
-	SELECT 	@previousMaxId  = max(id)
-	  FROM [ForensicLogging].[Log];
-
+	SELECT 	@previousMaxId  = max(id) FROM [ForensicLogging].[Log];
 	EXECUTE [ForensicLogging].[getSetting] 'DisplayChanges', @displayChanges OUTPUT;
 		
 	EXECUTE [ForensicLogging].[monitorConfig];
 	EXECUTE [ForensicLogging].[monitorUsers];
+	EXECUTE [ForensicLogging].[monitorObjects];
 
 	IF(@displayChanges = 'True')
 	BEGIN
@@ -327,5 +398,11 @@ EXEC sp_configure 'show advanced options', '0';
 INSERT INTO [ForensicLogging].[Configuration] ([setting], [value]) VALUES ('DisplayChanges', 'True');
 EXECUTE [ForensicLogging].[runFullMonitoringPass] ;
 --EXEC sp_configure 'show advanced options', '1';
--- WAITFOR DELAY '00:00:02';
+
+
+
+--GO
+--EXECUTE [ForensicLogging].[runFullMonitoringPass] ;
+--WAITFOR DELAY '00:00:02';
+--GO 1000
 
