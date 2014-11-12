@@ -1,11 +1,14 @@
 #SqlForensics
 
 ##Installing
+### Step 1 - Installation 
 Open the InstallSqlForensics.sql file, review it and run it.
 What the install does:
  * Creates a database called [SqlForensics].
  * Creates several tables in that database to track what happens when.
  * Creates several stored procedures to track different items.
+### Step 2 - Schedule the monitoring job
+Schedule the stored procedure called [ForensicLogging].[runFullMonitoringPass] to run regularly (every 5 minutes is suggested).
 
 ##What is it?
 SQL Server logging system to help with forensics.
@@ -26,8 +29,6 @@ that no modifications were made to your SQL Server during that hacking event.
 
 ##To Do
 + Tracking of who changed what and when
- + Stored Procedures
- + Functions
  + Tables
  + Triggers
  + Foreign Keys
@@ -43,10 +44,14 @@ that no modifications were made to your SQL Server during that hacking event.
 ##Whats Done
 + Tracking database configuration changes (ie sp_configure)
 + Users
-  
++ Stored Procedures
++ Functions
+
+##What this is not
+SqlForensics is not intended to monitor data in tables. It does not track what data users accessed.
 
 ##Want to contribute
-Contact Steve Stedman for more info.
+Contact Steve Stedman for more info.  http://SteveStedman.com
 
 Basically here is how it works...
 
