@@ -1,5 +1,7 @@
 #SqlForensics
 
+See the Wiki for more details. https://github.com/SteveStedman/SqlForensics/wiki
+
 ##Installing
 ### Step 1 - Installation 
 Open the InstallSqlForensics.sql file, review it and run it.

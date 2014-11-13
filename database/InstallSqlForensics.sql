@@ -1,3 +1,8 @@
+
+-- For Information on Optional Settings see the Wiki at 
+--    https://github.com/SteveStedman/SqlForensics/wiki/OptionalSettings
+
+
 USE MASTER;
 GO
 SET NOCOUNT ON;
@@ -13,7 +18,7 @@ BEGIN
 	DROP DATABASE [SqlForensics];
 END
 
--- NOTE set to Case Sensitive for testing purpose. The COLLATE line can certainly be removed or changed.
+-- NOTE set to Case Sensitive for testing purpose. The COLLATE line can certainly be removed or changed as needed.
 CREATE DATABASE [SqlForensics]
 COLLATE SQL_Latin1_General_CP1_CS_AS;
 GO
@@ -105,6 +110,7 @@ CREATE PROCEDURE [ForensicLogging].[getLogTypeId]
 	@type NVARCHAR (50)
 AS
 BEGIN	
+-- detailed documentation available at https://github.com/SteveStedman/SqlForensics/wiki/FunctionsAndProcedures
 	DECLARE @logType as SMALLINT;
 
 	SELECT @logType = lt.[id] 
@@ -126,6 +132,7 @@ GO
 CREATE PROCEDURE [ForensicLogging].[monitorConfig] 
 AS
 BEGIN
+-- detailed documentation available at https://github.com/SteveStedman/SqlForensics/wiki/FunctionsAndProcedures
 	SET NOCOUNT ON;
 	DECLARE @databaseAndServerId as BIGINT;
 	DECLARE @logTypeId as SMALLINT;
@@ -188,6 +195,7 @@ GO
 CREATE PROCEDURE [ForensicLogging].[monitorUsers] 
 AS
 BEGIN
+-- detailed documentation available at https://github.com/SteveStedman/SqlForensics/wiki/FunctionsAndProcedures
 	SET NOCOUNT ON;
 	DECLARE @databaseAndServerId as BIGINT;
 	DECLARE @logTypeId as SMALLINT;
@@ -259,6 +267,7 @@ GO
 CREATE PROCEDURE [ForensicLogging].[monitorObjects] 
 AS
 BEGIN
+-- detailed documentation available at https://github.com/SteveStedman/SqlForensics/wiki/FunctionsAndProcedures
 	-- improve this by breaking out the object type.
 	SET NOCOUNT ON;
 	DECLARE @databaseAndServerId as BIGINT;
@@ -335,25 +344,46 @@ BEGIN
 	END	
 END
 GO
-CREATE PROCEDURE [ForensicLogging].[getSetting]
+CREATE FUNCTION [ForensicLogging].[getSetting] ( @settingName NVARCHAR (50) )
+RETURNS NVARCHAR(4000)
+AS
+BEGIN
+-- detailed documentation available at https://github.com/SteveStedman/SqlForensics/wiki/OptionalSettings
+	DECLARE @result as NVARCHAR(4000);
+	SET @result = '';
+
+	SELECT @result = value
+	  FROM [ForensicLogging].[Configuration]
+     WHERE setting = @settingName;
+
+	RETURN @result;
+END
+GO
+CREATE PROCEDURE [ForensicLogging].[setSetting]
 	@setting NVARCHAR (50), 
 	@value as NVARCHAR(4000) OUTPUT
 AS
 BEGIN	
-	SELECT @value = value
-	  FROM [ForensicLogging].[Configuration]
-     WHERE setting = @setting;
+-- detailed documentation available at https://github.com/SteveStedman/SqlForensics/wiki/OptionalSettings
+	MERGE [ForensicLogging].[Configuration]  AS target       
+	USING (SELECT @setting AS settingName, @value AS settingValue) AS source (settingName, settingValue)       
+	   ON (target.setting COLLATE DATABASE_DEFAULT = source.settingName COLLATE DATABASE_DEFAULT)   
+	 WHEN NOT MATCHED THEN                                 
+   INSERT ([setting], [value])                                 
+   VALUES (source.settingName, source.settingValue);  
+
 END
 GO
 CREATE PROCEDURE [ForensicLogging].[runFullMonitoringPass] 
 AS
 BEGIN
+-- detailed documentation available at https://github.com/SteveStedman/SqlForensics/wiki/FunctionsAndProcedures
 	SET NOCOUNT ON;
 	DECLARE @displayChanges as NVARCHAR(4000);
 	DECLARE @previousMaxId as BIGINT;
 	
 	SELECT 	@previousMaxId  = max(id) FROM [ForensicLogging].[Log];
-	EXECUTE [ForensicLogging].[getSetting] 'DisplayChanges', @displayChanges OUTPUT;
+	SET @displayChanges = [ForensicLogging].[getSetting] ('DisplayChanges');
 		
 	EXECUTE [ForensicLogging].[monitorConfig];
 	EXECUTE [ForensicLogging].[monitorUsers];
@@ -395,7 +425,7 @@ EXEC sp_configure 'show advanced options', '0';
  WAITFOR DELAY '00:00:02';
 
 -- Note the 'DisplayChanges' option of 'True' (string value) means that the runFullMonitoringPass sproc will display what has changed in that specific run.
-INSERT INTO [ForensicLogging].[Configuration] ([setting], [value]) VALUES ('DisplayChanges', 'True');
+EXECUTE [ForensicLogging].[setSetting] 'DisplayChanges', 'True';
 EXECUTE [ForensicLogging].[runFullMonitoringPass] ;
 --EXEC sp_configure 'show advanced options', '1';
 
