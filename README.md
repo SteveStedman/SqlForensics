@@ -26,6 +26,17 @@ database, and to keep that information around for an extended period. Imagine fi
 had been hacked 7 months ago and people had stolen credit cards. Is there a way that you can know for sure
 that no modifications were made to your SQL Server during that hacking event.
 
+##Who
+Do you work for a public company. Chance are that due to regulatory changes and personal liabiality 
+associated with cybercrime negligence your CEO in the next year or two will be requiring much higher levels
+of accountability on the data forensics. Back to the question of "Do you know what has changed in the database?"
+
+##Features
++ Tracking database configuration changes (ie sp_configure)
++ Tracking of the adding of users Users
++ Tracking the adding or modification of Stored Procedures
++ Tracking the adding or modification of Functions
+
 
 ##To Do
 + Tracking of who changed what and when
@@ -40,12 +51,6 @@ that no modifications were made to your SQL Server during that hacking event.
 + Alerting
 + Investigation Tools
 + Transaction Log Viewer
-
-##Whats Done
-+ Tracking database configuration changes (ie sp_configure)
-+ Users
-+ Stored Procedures
-+ Functions
 
 ##What this is not
 SqlForensics is not intended to monitor data in tables. It does not track what data users accessed.
