@@ -9,13 +9,13 @@ SET NOCOUNT ON;
 
 IF EXISTS(SELECT name FROM sys.databases WHERE name = 'SqlForensics')
 BEGIN
-	--RAISERROR ('Database SqlForensics Already Exists', 20, 1)  WITH LOG
+	RAISERROR ('Database SqlForensics Already Exists', 20, 1)  WITH LOG
 	-- comment out the RAISEERROR line above and uncomment the following three lines if you
 	--   are running the script a second time. 
 	   
-	ALTER DATABASE [SqlForensics] 
-	  SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
-	DROP DATABASE [SqlForensics];
+	--ALTER DATABASE [SqlForensics] 
+	--  SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
+	--DROP DATABASE [SqlForensics];
 END
 
 -- NOTE set to Case Sensitive for testing purpose. The COLLATE line can certainly be removed or changed as needed.
@@ -418,15 +418,15 @@ EXECUTE [ForensicLogging].[runFullMonitoringPass] ;
 
 
 
-EXEC sp_configure 'show advanced options', '1';
- WAITFOR DELAY '00:00:02';
-EXECUTE [ForensicLogging].[runFullMonitoringPass] ;
-EXEC sp_configure 'show advanced options', '0';
- WAITFOR DELAY '00:00:02';
+--EXEC sp_configure 'show advanced options', '1';
+-- WAITFOR DELAY '00:00:02';
+--EXECUTE [ForensicLogging].[runFullMonitoringPass] ;
+--EXEC sp_configure 'show advanced options', '0';
+-- WAITFOR DELAY '00:00:02';
 
 -- Note the 'DisplayChanges' option of 'True' (string value) means that the runFullMonitoringPass sproc will display what has changed in that specific run.
-EXECUTE [ForensicLogging].[setSetting] 'DisplayChanges', 'True';
-EXECUTE [ForensicLogging].[runFullMonitoringPass] ;
+--EXECUTE [ForensicLogging].[setSetting] 'DisplayChanges', 'True';
+--EXECUTE [ForensicLogging].[runFullMonitoringPass] ;
 --EXEC sp_configure 'show advanced options', '1';
 
 
