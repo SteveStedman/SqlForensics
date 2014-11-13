@@ -9,6 +9,7 @@ What the install does:
  * Creates a database called [SqlForensics].
  * Creates several tables in that database to track what happens when.
  * Creates several stored procedures to track different items.
+
 ### Step 2 - Schedule the monitoring job
 Schedule the stored procedure called [ForensicLogging].[runFullMonitoringPass] to run regularly (every 5 minutes is suggested).
 
