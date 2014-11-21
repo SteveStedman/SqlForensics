@@ -9,13 +9,13 @@ SET NOCOUNT ON;
 
 IF EXISTS(SELECT name FROM sys.databases WHERE name = 'SqlForensics')
 BEGIN
-	RAISERROR ('Database SqlForensics Already Exists', 20, 1)  WITH LOG
+	--RAISERROR ('Database SqlForensics Already Exists', 20, 1)  WITH LOG
 	-- comment out the RAISEERROR line above and uncomment the following three lines if you
 	--   are running the script a second time. 
 	   
-	--ALTER DATABASE [SqlForensics] 
-	--  SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
-	--DROP DATABASE [SqlForensics];
+	ALTER DATABASE [SqlForensics] 
+	  SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
+	DROP DATABASE [SqlForensics];
 END
 
 -- NOTE set to Case Sensitive for testing purpose. The COLLATE line can certainly be removed or changed as needed.
@@ -71,7 +71,7 @@ GO
 CREATE TABLE [ForensicLogging].[Log](
 	[id] [bigint] IDENTITY(-9223372036854775808,1) NOT NULL,
 	[whenRecorded] [datetime2](7) NULL,
-	[databaseServerId] bigint NULL, -- set to not null once working
+	[databaseServerId] bigint NOT NULL, 
 	[typeId] [smallint] NOT NULL,
 	[itemId] [bigint] NOT NULL,
 	[value] [NVARCHAR](max) NULL,
@@ -111,7 +111,7 @@ CREATE PROCEDURE [ForensicLogging].[getLogTypeId]
 AS
 BEGIN	
 -- detailed documentation available at https://github.com/SteveStedman/SqlForensics/wiki/FunctionsAndProcedures
-	DECLARE @logType as SMALLINT;
+	DECLARE @logType AS SMALLINT;
 
 	SELECT @logType = lt.[id] 
 	  FROM [ForensicLogging].[LogTypes] AS lt
@@ -134,17 +134,17 @@ AS
 BEGIN
 -- detailed documentation available at https://github.com/SteveStedman/SqlForensics/wiki/FunctionsAndProcedures
 	SET NOCOUNT ON;
-	DECLARE @databaseAndServerId as BIGINT;
-	DECLARE @logTypeId as SMALLINT;
+	DECLARE @databaseAndServerId AS BIGINT;
+	DECLARE @logTypeId AS SMALLINT;
 	DECLARE @type NVARCHAR(50);
 	SET @type = 'sys_configurations';
 	SET @databaseAndServerId = NULL;
 
 	EXECUTE @logTypeId = [ForensicLogging].[getLogTypeId] @type;
-	IF(@logTypeId is not NULL)
+	IF(@logTypeId IS NOT NULL)
 	BEGIN
 		MERGE [ForensicLogging].[LogItems]  AS target       
-		USING (SELECT configuration_id, name  FROM sys.configurations as c) AS source (theItemsId, name)       
+		USING (SELECT configuration_id, name  FROM sys.configurations AS c) AS source (theItemsId, name)       
 		   ON (target.theItemsId = source.theItemsId AND 
 			   target.name COLLATE DATABASE_DEFAULT = source.name COLLATE DATABASE_DEFAULT)   
 		 WHEN NOT MATCHED THEN                                 
@@ -167,7 +167,7 @@ BEGIN
 		;WITH wrapperCTE AS
 		( 
 			SELECT [itemId], [value], 
-				   ROW_NUMBER() OVER (PARTITION BY [typeId], [itemId] ORDER BY [id] DESC) as sorter
+				   ROW_NUMBER() OVER (PARTITION BY [typeId], [itemId] ORDER BY [id] DESC) AS sorter
 			  FROM [ForensicLogging].[Log]
 			 WHERE [typeId] = @logTypeId
 		),existingCTE AS
@@ -177,17 +177,17 @@ BEGIN
 			 WHERE sorter = 1
 		),currentCTE	AS
 		(
-			SELECT l.id as itemId, 
-			       cast(c.VALUE AS NVARCHAR(100)) + '/' + cast(c.VALUE_IN_USE as NVARCHAR(100)) as value
-			  FROM sys.configurations as c
-			 INNER JOIN [ForensicLogging].[LogItems] as l 
+			SELECT l.id AS itemId, 
+			       cast(c.VALUE AS NVARCHAR(100)) + '/' + cast(c.VALUE_IN_USE AS NVARCHAR(100)) AS value
+			  FROM sys.configurations AS c
+			 INNER JOIN [ForensicLogging].[LogItems] AS l 
 			         ON l.theItemsId = c.CONFIGURATION_ID AND 
 					    l.name COLLATE DATABASE_DEFAULT = c.NAME COLLATE DATABASE_DEFAULT 
 		)
 		INSERT INTO [ForensicLogging].[Log] ([typeId], [itemId], [value], [databaseServerId]) 
 		SELECT @logTypeId, c.*, @databaseAndServerId
-		  FROM currentCTE as c
-		  LEFT JOIN existingCTE as e ON e.[itemId] = c.[itemId] AND c.[value] = e.[value]
+		  FROM currentCTE AS c
+		  LEFT JOIN existingCTE AS e ON e.[itemId] = c.[itemId] AND c.[value] = e.[value]
 		 WHERE e.[value] is NULL;
 	END
 END
@@ -197,14 +197,14 @@ AS
 BEGIN
 -- detailed documentation available at https://github.com/SteveStedman/SqlForensics/wiki/FunctionsAndProcedures
 	SET NOCOUNT ON;
-	DECLARE @databaseAndServerId as BIGINT;
-	DECLARE @logTypeId as SMALLINT;
+	DECLARE @databaseAndServerId AS BIGINT;
+	DECLARE @logTypeId AS SMALLINT;
 	DECLARE @type [NVARCHAR](50);
 	SET @type = 'users';
 	SET @databaseAndServerId = NULL;
 
 	EXECUTE @logTypeId = [ForensicLogging].[getLogTypeId] @type;
-	IF(@logTypeId is not NULL)
+	IF(@logTypeId IS NOT NULL)
 	BEGIN
 		CREATE TABLE #tempUsers (
 			loginName NVARCHAR(max),
@@ -234,7 +234,7 @@ BEGIN
 		;WITH wrapperCTE AS
 		( 
 			SELECT [itemId], [value], 
-				   ROW_NUMBER() OVER (PARTITION BY [typeId], [itemId] ORDER BY [id] DESC) as sorter
+				   ROW_NUMBER() OVER (PARTITION BY [typeId], [itemId] ORDER BY [id] DESC) AS sorter
 			  FROM [ForensicLogging].[Log]
 			 WHERE [typeId] = @logTypeId
 		),existingCTE AS
@@ -244,19 +244,19 @@ BEGIN
 			 WHERE sorter = 1
 		),currentCTE	AS
 		(
-			SELECT l.id as itemId, ISNULL(tu.loginName, '') + '/' + ISNULL(tu.userName, '') as value, das.id as databaseServerId
+			SELECT l.id AS itemId, ISNULL(tu.loginName, '') + '/' + ISNULL(tu.userName, '') AS value, das.id AS databaseServerId
 			  FROM #tempUsers tu
-			 INNER JOIN [ForensicLogging].[LogItems] as l 
+			 INNER JOIN [ForensicLogging].[LogItems] AS l 
 			        ON l.theItemsId IS NULL AND 
 					   l.name COLLATE DATABASE_DEFAULT = ISNULL(tu.loginName, '') + '/' + ISNULL(tu.userName, '') COLLATE DATABASE_DEFAULT  
-			 INNER JOIN [ForensicLogging].[databaseAndServer]  as das
+			 INNER JOIN [ForensicLogging].[databaseAndServer]  AS das
 			        ON das.databaseName COLLATE DATABASE_DEFAULT = tu.dbName COLLATE DATABASE_DEFAULT 
 					AND das.serverName COLLATE DATABASE_DEFAULT = @@SERVERNAME COLLATE DATABASE_DEFAULT 
 		)
 		INSERT INTO [ForensicLogging].[Log] ([typeId], [itemId], [value], [databaseServerId]) 
 		SELECT @logTypeId, c.*
-		  FROM currentCTE as c
-		  LEFT JOIN existingCTE as e ON e.[itemId] = c.[itemId] 
+		  FROM currentCTE AS c
+		  LEFT JOIN existingCTE AS e ON e.[itemId] = c.[itemId] 
 		      AND c.[value] COLLATE DATABASE_DEFAULT = e.[value] COLLATE DATABASE_DEFAULT 
 		 WHERE e.[value] is NULL;
 
@@ -270,13 +270,13 @@ BEGIN
 -- detailed documentation available at https://github.com/SteveStedman/SqlForensics/wiki/FunctionsAndProcedures
 	-- improve this by breaking out the object type.
 	SET NOCOUNT ON;
-	DECLARE @databaseAndServerId as BIGINT;
-	DECLARE @logTypeId as SMALLINT;
+	DECLARE @databaseAndServerId AS BIGINT;
+	DECLARE @logTypeId AS SMALLINT;
 	DECLARE @type [NVARCHAR](50);
 	SET @type = 'objects';
 	SET @databaseAndServerId = NULL;
 	EXECUTE @logTypeId = [ForensicLogging].[getLogTypeId] @type;
-	IF(@logTypeId is not NULL)
+	IF(@logTypeId IS NOT NULL)
 	BEGIN
 		CREATE TABLE #tempOutput (
 					itemName NVARCHAR(max),
@@ -314,7 +314,7 @@ BEGIN
 		;WITH wrapperCTE AS
 		( 
 			SELECT [itemId], [value], 
-				   ROW_NUMBER() OVER (PARTITION BY [typeId], [itemId] ORDER BY [id] DESC) as sorter
+				   ROW_NUMBER() OVER (PARTITION BY [typeId], [itemId] ORDER BY [id] DESC) AS sorter
 			  FROM [ForensicLogging].[Log]
 			 WHERE [typeId] = @logTypeId
 		),existingCTE AS
@@ -324,19 +324,19 @@ BEGIN
 			 WHERE sorter = 1
 		),currentCTE	AS
 		(
-			SELECT l.id as itemId, t.itemDetails as value, das.id as databaseServerId
-			  FROM #tempOutput as t
-			 INNER JOIN [ForensicLogging].[LogItems] as l 
+			SELECT l.id AS itemId, t.itemDetails AS value, das.id AS databaseServerId
+			  FROM #tempOutput AS t
+			 INNER JOIN [ForensicLogging].[LogItems] AS l 
 			        ON l.theItemsId IS NULL AND 
 					   l.name COLLATE DATABASE_DEFAULT = t.itemName COLLATE DATABASE_DEFAULT  
-			 INNER JOIN [ForensicLogging].[databaseAndServer]  as das
+			 INNER JOIN [ForensicLogging].[databaseAndServer]  AS das
 			        ON das.databaseName COLLATE DATABASE_DEFAULT = t.dbName COLLATE DATABASE_DEFAULT 
 					AND das.serverName COLLATE DATABASE_DEFAULT = @@SERVERNAME COLLATE DATABASE_DEFAULT 
 		)
 		INSERT INTO [ForensicLogging].[Log] ([typeId], [itemId], [value], [databaseServerId]) 
 		SELECT @logTypeId, c.*
-		  FROM currentCTE as c
-		  LEFT JOIN existingCTE as e ON e.[itemId] = c.[itemId] 
+		  FROM currentCTE AS c
+		  LEFT JOIN existingCTE AS e ON e.[itemId] = c.[itemId] 
 		      AND c.[value] COLLATE DATABASE_DEFAULT = e.[value] COLLATE DATABASE_DEFAULT 
 		 WHERE e.[value] is NULL;
 
@@ -349,7 +349,7 @@ RETURNS NVARCHAR(4000)
 AS
 BEGIN
 -- detailed documentation available at https://github.com/SteveStedman/SqlForensics/wiki/OptionalSettings
-	DECLARE @result as NVARCHAR(4000);
+	DECLARE @result AS NVARCHAR(4000);
 	SET @result = '';
 
 	SELECT @result = value
@@ -361,7 +361,7 @@ END
 GO
 CREATE PROCEDURE [ForensicLogging].[setSetting]
 	@setting NVARCHAR (50), 
-	@value as NVARCHAR(4000) OUTPUT
+	@value AS NVARCHAR(4000) OUTPUT
 AS
 BEGIN	
 -- detailed documentation available at https://github.com/SteveStedman/SqlForensics/wiki/OptionalSettings
@@ -379,8 +379,8 @@ AS
 BEGIN
 -- detailed documentation available at https://github.com/SteveStedman/SqlForensics/wiki/FunctionsAndProcedures
 	SET NOCOUNT ON;
-	DECLARE @displayChanges as NVARCHAR(4000);
-	DECLARE @previousMaxId as BIGINT;
+	DECLARE @displayChanges AS NVARCHAR(4000);
+	DECLARE @previousMaxId AS BIGINT;
 	
 	SELECT 	@previousMaxId  = max(id) FROM [ForensicLogging].[Log];
 	SET @displayChanges = [ForensicLogging].[getSetting] ('DisplayChanges');
@@ -391,7 +391,7 @@ BEGIN
 
 	IF(@displayChanges = 'True')
 	BEGIN
-		SELECT li.[name], cast(l.[whenRecorded] as datetime), l.[value]
+		SELECT li.[name], cast(l.[whenRecorded] AS datetime), l.[value]
 		  FROM [ForensicLogging].[Log] l
 		 INNER JOIN [ForensicLogging].[LogItems]  li on li.[id] = l.[itemId]
 		 WHERE l.id > @previousMaxId
@@ -409,7 +409,7 @@ EXECUTE [ForensicLogging].[runFullMonitoringPass] ;
 
 
 -- To see results run this query
---SELECT li.[name], cast(l.[whenRecorded] as datetime), l.[value]
+--SELECT li.[name], cast(l.[whenRecorded] AS datetime), l.[value]
 --  FROM [ForensicLogging].[Log] l
 --  INNER JOIN [ForensicLogging].[LogItems]  li on li.[id] = l.[itemId]
 --  ORDER BY [whenRecorded] DESC;
