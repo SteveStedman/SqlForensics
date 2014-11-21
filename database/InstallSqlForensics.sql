@@ -7,7 +7,7 @@ USE MASTER;
 GO
 SET NOCOUNT ON;
 
-IF EXISTS(SELECT name FROM sys.databases WHERE name = 'SqlForensics')
+IF EXISTS(SELECT sd.[name] FROM sys.databases AS sd WHERE sd.[name] = 'SqlForensics')
 BEGIN
 	--RAISERROR ('Database SqlForensics Already Exists', 20, 1)  WITH LOG
 	-- comment out the RAISEERROR line above and uncomment the following three lines if you
@@ -117,7 +117,7 @@ BEGIN
 	  FROM [ForensicLogging].[LogTypes] AS lt
 	 WHERE lt.[type] = @type;
 
-	IF(@logType is NULL)
+	IF(@logType IS NULL)
 	BEGIN
 		INSERT INTO [ForensicLogging].[LogTypes]([type])
 			 VALUES (@type);
@@ -159,22 +159,22 @@ BEGIN
 	   INSERT (serverName, databaseName)                                 
 	   VALUES (source.serverName, source.databaseName);  
 
-	   SELECT @databaseAndServerId = id
-	     FROM [ForensicLogging].[databaseAndServer]  
-		WHERE databaseName COLLATE DATABASE_DEFAULT = '' 
-		  AND serverName COLLATE DATABASE_DEFAULT = @@SERVERNAME;   
+	   SELECT @databaseAndServerId =  das.[id]
+	     FROM [ForensicLogging].[databaseAndServer] AS das
+		WHERE das.[databaseName] COLLATE DATABASE_DEFAULT = '' 
+		  AND  das.[serverName] COLLATE DATABASE_DEFAULT = @@SERVERNAME;   
 
 		;WITH wrapperCTE AS
 		( 
-			SELECT [itemId], [value], 
-				   ROW_NUMBER() OVER (PARTITION BY [typeId], [itemId] ORDER BY [id] DESC) AS sorter
-			  FROM [ForensicLogging].[Log]
-			 WHERE [typeId] = @logTypeId
+			SELECT l.[itemId], l.[value], 
+				   ROW_NUMBER() OVER (PARTITION BY l.[typeId], l.[itemId] ORDER BY l.[id] DESC) AS sorter
+			  FROM [ForensicLogging].[Log] AS l
+			 WHERE l.[typeId] = @logTypeId
 		),existingCTE AS
 		(
-			SELECT * 
-			  FROM wrapperCTE
-			 WHERE sorter = 1
+			SELECT cte.[itemId], cte.[value] 
+			  FROM wrapperCTE as cte
+			 WHERE cte.[sorter] = 1
 		),currentCTE	AS
 		(
 			SELECT l.id AS itemId, 
@@ -188,7 +188,7 @@ BEGIN
 		SELECT @logTypeId, c.*, @databaseAndServerId
 		  FROM currentCTE AS c
 		  LEFT JOIN existingCTE AS e ON e.[itemId] = c.[itemId] AND c.[value] = e.[value]
-		 WHERE e.[value] is NULL;
+		 WHERE e.[value] IS NULL;
 	END
 END
 GO
@@ -233,15 +233,15 @@ BEGIN
 
 		;WITH wrapperCTE AS
 		( 
-			SELECT [itemId], [value], 
-				   ROW_NUMBER() OVER (PARTITION BY [typeId], [itemId] ORDER BY [id] DESC) AS sorter
-			  FROM [ForensicLogging].[Log]
-			 WHERE [typeId] = @logTypeId
+			SELECT l.[itemId], l.[value], 
+				   ROW_NUMBER() OVER (PARTITION BY l.[typeId], l.[itemId] ORDER BY l.[id] DESC) AS sorter
+			  FROM [ForensicLogging].[Log] AS l
+			 WHERE l.[typeId] = @logTypeId
 		),existingCTE AS
 		(
-			SELECT * 
-			  FROM wrapperCTE
-			 WHERE sorter = 1
+			SELECT cte.[itemId], cte.[value]
+			  FROM wrapperCTE as cte
+			 WHERE cte.[sorter] = 1
 		),currentCTE	AS
 		(
 			SELECT l.id AS itemId, ISNULL(tu.loginName, '') + '/' + ISNULL(tu.userName, '') AS value, das.id AS databaseServerId
@@ -258,7 +258,7 @@ BEGIN
 		  FROM currentCTE AS c
 		  LEFT JOIN existingCTE AS e ON e.[itemId] = c.[itemId] 
 		      AND c.[value] COLLATE DATABASE_DEFAULT = e.[value] COLLATE DATABASE_DEFAULT 
-		 WHERE e.[value] is NULL;
+		 WHERE e.[value] IS NULL;
 
 		DROP TABLE #tempUsers;
 	END	
@@ -268,7 +268,6 @@ CREATE PROCEDURE [ForensicLogging].[monitorObjects]
 AS
 BEGIN
 -- detailed documentation available at https://github.com/SteveStedman/SqlForensics/wiki/FunctionsAndProcedures
-	-- improve this by breaking out the object type.
 	SET NOCOUNT ON;
 	DECLARE @databaseAndServerId AS BIGINT;
 	DECLARE @logTypeId AS SMALLINT;
@@ -313,16 +312,16 @@ BEGIN
 
 		;WITH wrapperCTE AS
 		( 
-			SELECT [itemId], [value], 
-				   ROW_NUMBER() OVER (PARTITION BY [typeId], [itemId] ORDER BY [id] DESC) AS sorter
-			  FROM [ForensicLogging].[Log]
-			 WHERE [typeId] = @logTypeId
+			SELECT l.[itemId], l.[value], 
+				   ROW_NUMBER() OVER (PARTITION BY l.[typeId], l.[itemId] ORDER BY l.[id] DESC) AS sorter
+			  FROM [ForensicLogging].[Log] AS l
+			 WHERE l.[typeId] = @logTypeId
 		),existingCTE AS
 		(
-			SELECT * 
-			  FROM wrapperCTE
-			 WHERE sorter = 1
-		),currentCTE	AS
+			SELECT cte.[itemId], cte.[value]
+			  FROM wrapperCTE AS cte
+			 WHERE cte.[sorter] = 1
+		),currentCTE AS
 		(
 			SELECT l.id AS itemId, t.itemDetails AS value, das.id AS databaseServerId
 			  FROM #tempOutput AS t
@@ -338,7 +337,7 @@ BEGIN
 		  FROM currentCTE AS c
 		  LEFT JOIN existingCTE AS e ON e.[itemId] = c.[itemId] 
 		      AND c.[value] COLLATE DATABASE_DEFAULT = e.[value] COLLATE DATABASE_DEFAULT 
-		 WHERE e.[value] is NULL;
+		 WHERE e.[value] IS NULL;
 
 		DROP TABLE #tempOutput;
 	END	
@@ -352,9 +351,9 @@ BEGIN
 	DECLARE @result AS NVARCHAR(4000);
 	SET @result = '';
 
-	SELECT @result = value
-	  FROM [ForensicLogging].[Configuration]
-     WHERE setting = @settingName;
+	SELECT @result = c.[value]
+	  FROM [ForensicLogging].[Configuration] AS c
+     WHERE c.[setting] = @settingName;
 
 	RETURN @result;
 END
@@ -393,9 +392,9 @@ BEGIN
 	BEGIN
 		SELECT li.[name], cast(l.[whenRecorded] AS datetime), l.[value]
 		  FROM [ForensicLogging].[Log] l
-		 INNER JOIN [ForensicLogging].[LogItems]  li on li.[id] = l.[itemId]
+		 INNER JOIN [ForensicLogging].[LogItems]  li ON li.[id] = l.[itemId]
 		 WHERE l.id > @previousMaxId
-		 ORDER BY [whenRecorded] DESC;
+		 ORDER BY l.[whenRecorded] DESC;
 	END
 END
 GO
@@ -411,7 +410,7 @@ EXECUTE [ForensicLogging].[runFullMonitoringPass] ;
 -- To see results run this query
 --SELECT li.[name], cast(l.[whenRecorded] AS datetime), l.[value]
 --  FROM [ForensicLogging].[Log] l
---  INNER JOIN [ForensicLogging].[LogItems]  li on li.[id] = l.[itemId]
+--  INNER JOIN [ForensicLogging].[LogItems]  li ON li.[id] = l.[itemId]
 --  ORDER BY [whenRecorded] DESC;
 
 
